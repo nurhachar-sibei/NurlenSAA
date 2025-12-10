@@ -10,8 +10,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 warnings.filterwarnings("ignore")
 
-#导入配置
+#导入案例配置用于__main__调试
 from NurlenSAA.example.HRP_config import HRPConfig,BenchmarkConfig
+from NurlenSAA.example.Strategy_HRP import HRPSimpleBacktest
+
 #导入工具模块
 from Util_Fin import easy_manager
 from Util_Fin import Wind_util
@@ -19,7 +21,6 @@ from Util_Fin import Volatility_util
 from Util_Fin import logger_util
 from Util_Fin import Position_util
 #导入策略模块
-from NurlenSAA.example.Strategy_HRP import HRPSimpleBacktest
 from NurlenSAA.benchmark_strategy import BenchmarkStrategy, BenchmarkManager
 #导入回测引擎
 from NurlenSAA.backtest_engine import BacktestEngine
