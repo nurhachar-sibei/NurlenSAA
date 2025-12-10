@@ -1,5 +1,4 @@
 '''
-HRP主程序入口
 模块集成并提供策略回测流程
 '''
 
@@ -12,22 +11,18 @@ import seaborn as sns
 warnings.filterwarnings("ignore")
 
 #导入配置
-from NurlenSAA.HRP_config import HRPConfig,BenchmarkConfig
-
+from NurlenSAA.example.HRP_config import HRPConfig,BenchmarkConfig
 #导入工具模块
 from Util_Fin import easy_manager
 from Util_Fin import Wind_util
 from Util_Fin import Volatility_util
 from Util_Fin import logger_util
 from Util_Fin import Position_util
-
 #导入策略模块
-from NurlenSAA.Strategy_HRP import HRPSimpleBacktest
+from NurlenSAA.example.Strategy_HRP import HRPSimpleBacktest
 from NurlenSAA.benchmark_strategy import BenchmarkStrategy, BenchmarkManager
-
 #导入回测引擎
 from NurlenSAA.backtest_engine import BacktestEngine
-
 #导入评价模块
 from Util_Fin.eval_module import (
     PerformanceEvaluator,
@@ -43,7 +38,7 @@ class StrategyRunner:
         config : 策略配置对象
         logger : 日志工具对象
         '''
-        self.config = config or HRPConfig
+        self.config = config 
         self.benchmarks_config = benchmarks_config
         self.logger = logger_util.setup_logger(
             log_file = self.config.LOG_FILE_PREFIX,
@@ -56,6 +51,7 @@ class StrategyRunner:
         self.position_df = None
         self.change_position_dates = None
         self.backtest_results = {}
+        self.other_results = {}
         self.eval_results = {}
 
         self.strategies = {}
@@ -197,7 +193,7 @@ class StrategyRunner:
 
         #
         #运行回测
-        results = engine.run_multi_strategy_backtest(
+        results,other_results = engine.run_multi_strategy_backtest(
             strategies_dict=strategies,
             position_df=self.position_df,
             change_position_dates=self.change_position_dates,
@@ -207,6 +203,7 @@ class StrategyRunner:
         )
 
         self.backtest_results = results
+        self.other_results = other_results
 
         self.logger.info( "="*60)
         self.logger.info("回测完成")
@@ -276,7 +273,7 @@ class StrategyRunner:
         os.makedirs(plot_dir, exist_ok=True)
 
         # 1. 绘制并保存净值曲线对比图
-        fig, ax = plt.subplots(figsize=(15, 6))
+        fig, ax = plt.subplots(figsize=(15, 8))
         for name, result in self.backtest_results.items():
             pv = result['portfolio_pv']
             ax.plot(pv.index, pv.values, label=name, linewidth=2)
@@ -311,9 +308,7 @@ class StrategyRunner:
             plt.tight_layout()
             plt.savefig(os.path.join(plot_dir, f"{name}_权重变化.png"), dpi=300)
             plt.close()
-        
-        plt.tight_layout()
-        plt.show()
+
     def run_complete_workflow(self, plot=True):
         """
         运行完整的策略工作流程

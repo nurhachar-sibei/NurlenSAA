@@ -6,7 +6,7 @@ import seaborn as sns
 
 from Util_Fin import Wind_util
 from Util_Fin import easy_manager
-from HRP_config import HRPConfig
+from NurlenSAA.example.HRP_config import HRPConfig
 
 
 class HRPSimpleBacktest:
@@ -115,8 +115,8 @@ class HRPSimpleBacktest:
         self.weights = self.weights[HRPConfig.CODE_LIST]
         self.weights_matrix = np.matrix(self.weights).T #输出对应columns资产的Nx1权重矩阵
         return self.weights_matrix
-
-
+    # def get_other(self):
+    #     return {'weight':self.weights_matrix}
 if __name__ == '__main__':
     with easy_manager.EasyManager(database = 'macro_data_base') as em:
         price_data = em.load_table("daily_asset_price_1")

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import logging
+import json
 import datetime
 import warnings
 # 忽略 FutureWarning 类型的警告
@@ -26,7 +27,7 @@ class BacktestEngine:
             日志记录器，用于记录回测过程中的信息。如果未提供，将创建一个默认的日志记录器。
         '''
         self.logger = logger or logging.getLogger(__name__)
-        self.results = {}
+        self.other_result = {}
 
     def calculate_dynamic_weight(self,hold_df,init_weight,init_date):
         '''
@@ -120,6 +121,13 @@ class BacktestEngine:
                 weight = strategy.get_weight(cal_df,**strategy_params) #策略输出weight必须为N*1的矩阵
             else:
                 raise AttributeError('策略对象必须实现get_weight方法')
+
+            #一些可能需要的参数输出
+            if hasattr(strategy,'get_other'):
+                other = strategy.get_other()
+                self.other_result[str(p_d)] = other
+            else:
+                self.other_result[str(p_d)] = {}
             
             self.logger.info(
                     f"回测日期: {p_d.strftime('%Y-%m-%d')}, "
@@ -146,7 +154,7 @@ class BacktestEngine:
             'portfolio_pv':portfolio_pv,
         }
 
-        return result
+        return result,self.other_result
     def run_multi_strategy_backtest(self,
                                     strategies_dict,
                                     position_df,
@@ -176,6 +184,7 @@ class BacktestEngine:
             回测结果字典，包含了每个策略的回测结果。
         '''
         results = {}
+        other_results = {} #一些非标准变量的输出
         for strategy_name,strategy in strategies_dict.items():
             self.logger.info(f"{'='*60}")
             self.logger.info(f"开始回测策略: {strategy_name}")
@@ -186,7 +195,7 @@ class BacktestEngine:
 
             #运行回测
             try:
-                result = self.run_backtest(
+                result,other_result = self.run_backtest(
                     strategy=strategy,
                     position_df=position_df,
                     change_position_dates=change_position_dates,
@@ -195,10 +204,14 @@ class BacktestEngine:
                     **strategy_params
                 )
                 results[strategy_name] = result
+                other_results[strategy_name] = other_result
                 # current_date = datetime.datetime.now()
                 result['weight_df'].to_excel(f'./excel/{strategy_name}_weight_df.xlsx')
                 result['portfolio_returns'].to_excel(f'./excel/{strategy_name}_portfolio_returns.xlsx')
                 result['portfolio_pv'].to_excel(f'./excel/{strategy_name}_portfolio_pv.xlsx')
+                if hasattr(strategy,'get_other'):
+                    with open(f"./excel/{strategy_name}_other_results.json", "w") as f:
+                        json.dump(other_result, f, indent=4)
                 self.logger.info(f"策略'{strategy_name}'回测完成")
 
 
@@ -207,7 +220,7 @@ class BacktestEngine:
                 import traceback
                 self.logger.error(traceback.format_exc())
         self.results =results
-        return results
+        return results,other_results
     def get_results_summary(self):
         """
         获取回测结果摘要
@@ -284,7 +297,7 @@ if __name__ == '__main__':
     print(f"示例数据形状: {returns.shape}")
     print(f"数据时间范围: {returns.index[0]} 到 {returns.index[-1]}")
     print("\n运行回测...")
-    results = engine.run_multi_strategy_backtest(
+    results,other_results = engine.run_multi_strategy_backtest(
         strategies_dict={
             'SimpleStrategy': SimpleStrategy(),
         },

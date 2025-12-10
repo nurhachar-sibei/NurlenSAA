@@ -1,6 +1,6 @@
 from NurlenSAA.main import StrategyRunner
 from HRP_config import HRPConfig,BenchmarkConfig
-from NurlenSAA.Strategy_HRP import HRPSimpleBacktest
+from Strategy_HRP import HRPSimpleBacktest
 
 class Strategy_1(StrategyRunner):
     def __init__(self, config: HRPConfig, benchmarks: BenchmarkConfig):
