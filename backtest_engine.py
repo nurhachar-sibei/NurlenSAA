@@ -18,16 +18,19 @@ class BacktestEngine:
     回测引擎类
     '''
 
-    def __init__(self, logger=None):
+    def __init__(self, logger=None,global_config=None):
         '''
         初始化回测引擎
         Parameters:
         -----------
         logger: logging.Logger, optional
             日志记录器，用于记录回测过程中的信息。如果未提供，将创建一个默认的日志记录器。
+        global_config: dict, optional
+            全局配置参数，包含回测过程中需要的全局参数。如果未提供，将创建一个默认的全局配置参数。
         '''
         self.logger = logger or logging.getLogger(__name__)
         self.other_result = {}
+        self.global_config = global_config
 
     def calculate_dynamic_weight(self,hold_df,init_weight,init_date):
         '''
@@ -95,11 +98,16 @@ class BacktestEngine:
             回测结果字典，包含了回测的各种指标和结果。
         '''
         total_weights_df = None
+        self.last_weight = np.array([0]*len(ret_df.columns))
 
         #事件驱动核心循环
         for i in range(len(change_position_dates)):
             #获取当前调仓日
             p_d = change_position_dates[i]
+            if i== 0:
+                last_p_d = None
+            else:
+                last_p_d = change_position_dates[i-1]
             #确定下一个调仓日
             try:
                 next_p_d = change_position_dates[i+1]
@@ -114,6 +122,17 @@ class BacktestEngine:
                 #获取当前调仓日的持仓数据
                 hold_df = position_df.loc[p_d:next_p_d]
 
+            period_info = {
+                'last_p_d':last_p_d,
+                'p_d':p_d,
+                'next_p_d':next_p_d,
+                'cal_df':cal_df,
+                'hold_df':hold_df,
+                'last_term_weight':self.last_weight,
+                'code_list':self.global_config.CODE_LIST,
+                'fix_income_list':self.global_config.FIX_INCOME_ASSET_LIST,
+            }
+            strategy.period_info = period_info
             ##策略权重计算
             #策略核心识别
             if hasattr(strategy,'get_weight'):
@@ -121,7 +140,7 @@ class BacktestEngine:
                 weight = strategy.get_weight(cal_df,**strategy_params) #策略输出weight必须为N*1的矩阵
             else:
                 raise AttributeError('策略对象必须实现get_weight方法')
-
+            self.last_weight = weight
             #一些可能需要的参数输出
             if hasattr(strategy,'get_other'):
                 other = strategy.get_other()
@@ -134,6 +153,7 @@ class BacktestEngine:
                     f"权重: {weight.T.tolist()[0]}"
             )
 
+            
             #计算动态权重
             dynamic_weights_df = self.calculate_dynamic_weight(hold_df,weight,p_d)
             #每日权重表格
@@ -155,6 +175,47 @@ class BacktestEngine:
         }
 
         return result,self.other_result
+
+    def predict_weight_for_future(  self,
+                                    strategy,
+                                    position_df,
+                                    change_position_dates,
+                                    ret_df,
+                                    cal_windows,
+                                    **strategy_params):
+        '''
+        预测下一期的值
+        '''
+        last_p_d = change_position_dates[-1]
+        p_d = ret_df.index[-1]
+        cal_df = ret_df.loc[:p_d].iloc[-cal_windows:]
+
+        # next_p_d = self.change_position_dates[-1] + pd.DateOffset(months=2)
+
+
+        period_info = {
+            'last_p_d':last_p_d,
+            'p_d':p_d,
+            'next_p_d':None,
+            'cal_df':cal_df,
+            'hold_df':None,
+            'last_term_weight':self.last_weight,
+            'code_list':self.global_config.CODE_LIST,
+            'fix_income_list':self.global_config.FIX_INCOME_ASSET_LIST,
+            'input_initial_weight':[0.07733198290914069,
+                                    0.7271813297899372,
+                                    0.0711353642269906,
+                                    0.12435132307393156],
+        }
+        strategy.period_info = period_info
+        ##策略权重计算
+        #策略核心识别
+        if hasattr(strategy,'get_weight'):
+            #调用策略权重计算方法
+            weight = strategy.get_weight(cal_df,**strategy_params) #策略输出weight必须为N*1的矩阵
+        return {'p_d':p_d.strftime('%Y-%m-%d'),'weight':weight.T.tolist()[0]}
+
+
     def run_multi_strategy_backtest(self,
                                     strategies_dict,
                                     position_df,
@@ -185,6 +246,7 @@ class BacktestEngine:
         '''
         results = {}
         other_results = {} #一些非标准变量的输出
+        predict_weights = {} #预测权重
         for strategy_name,strategy in strategies_dict.items():
             self.logger.info(f"{'='*60}")
             self.logger.info(f"开始回测策略: {strategy_name}")
@@ -213,12 +275,26 @@ class BacktestEngine:
                     with open(f"./excel/{strategy_name}_other_results.json", "w") as f:
                         json.dump(other_result, f, indent=4)
                 self.logger.info(f"策略'{strategy_name}'回测完成")
+                #预测最后时间点后配置的权重：
+                predict_weight = self.predict_weight_for_future(
+                    strategy=strategy,
+                    position_df=position_df,
+                    change_position_dates=change_position_dates,
+                    ret_df=ret_df,
+                    cal_windows=cal_windows,
+                    **strategy_params
+                )
+                predict_weight['strategy_name'] = strategy_name
+                predict_weights[strategy_name] = predict_weight
+
 
 
             except Exception as e:
                 self.logger.error(f"策略 {strategy_name} 回测运行出错: {e}")
                 import traceback
                 self.logger.error(traceback.format_exc())
+        with open(f"./excel/predict_weights.json", "w") as f:
+            json.dump(predict_weights, f, indent=4)
         self.results =results
         return results,other_results
     def get_results_summary(self):

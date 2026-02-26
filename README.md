@@ -1,5 +1,7 @@
 # NurlenSAA
 
+**推荐使用环境： 研究环境**
+
 本仓库提供一套用于配置、运行、评估资产配置策略的通用回测框架，并配套若干基准策略、日志与报表输出工具。通过 `StrategyRunner` 可以一键完成数据读取、仓位准备、策略与基准初始化、回测执行、绩效评估以及图表绘制的全流程。
 
 ## 目录与核心模块
@@ -33,7 +35,7 @@ pip install pandas numpy scipy matplotlib seaborn tqdm openpyxl
 ## 快速开始
 
 1. **配置数据与参数**打开 `example/HRP_config.py`，根据实际情况修改数据库、资产列表、回测窗口、日志/报表输出路径等。
-2. **准备策略**`example/Strategy_HRP.py` 中的 `HRPSimpleBacktest.get_weight` 会基于历史收益的相关系数矩阵计算 HRP 权重，并返回 `N×1` 的矩阵。若要替换为其他策略，请确保实现同名方法，必要时实现 `get_strategy_info`/`get_other` 以在日志或自定义输出中使用。
+2. **准备策略** `example/Strategy_HRP.py` 中的 `HRPSimpleBacktest.get_weight` 会基于历史收益的相关系数矩阵计算 HRP 权重，并返回 `N×1` 的矩阵。若要替换为其他策略，请确保实现同名方法，必要时实现 `get_strategy_info`/`get_other` 以在日志或自定义输出中使用。
 3. **运行示例**
 
    ```bash

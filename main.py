@@ -45,6 +45,10 @@ class StrategyRunner:
             log_file = self.config.LOG_FILE_PREFIX,
             file_load=self.config.LOG_FILE_PATH
         )
+        if self.config.CONTROL_TURN_OVER:
+            self.max_turn_over = self.config.MAX_TURN_OVER
+        else:
+            self.max_turn_over = 1
 
         #数据存储
         self.price_df = None
@@ -76,6 +80,7 @@ class StrategyRunner:
                                         )
             self.price_df.set_index('index',inplace=True)
             self.price_df.index = pd.to_datetime(self.price_df.index)
+            self.price_df_raw = self.price_df.copy()
             self.price_df = self.price_df.loc[self.config.DATA_START_DATE:]
             self.price_df.dropna(inplace=True)
         
@@ -122,7 +127,7 @@ class StrategyRunner:
                 self.logger.info(f"调仓日期实例:")
                 for i in range(min(3,len(self.change_position_dates))):
                     self.logger.info(f"{self.change_position_dates[i]}")
-            self.change_position_df.to_excel(f"./excel/change_position_df.xlsx")
+            self.change_position_df.to_csv(f"./excel/change_position_df.csv")
         except Exception as e:
             self.logger.error(f"持仓信息准备失败: {e}")
             import traceback
@@ -178,7 +183,7 @@ class StrategyRunner:
         self.logger.info("="*60)
 
         #创建回测引擎
-        engine = BacktestEngine(logger=self.logger)
+        engine = BacktestEngine(logger=self.logger,global_config=self.config)
 
         #策略字典
         strategies = self.strategies
@@ -247,18 +252,18 @@ class StrategyRunner:
             # 打印年度报告
             ReportGenerator.print_annual_report(annual_df, f'{name}策略年度分析')
         
-        # 保存结果
-        if save_results and self.config.SAVE_EVAL_RESULTS:
-            import os
-            if not os.path.exists(self.config.EVAL_OUTPUT_PATH):
-                os.makedirs(self.config.EVAL_OUTPUT_PATH)
-            
-            ReportGenerator.save_report(
-                eval_df,
-                self.eval_results.get('annual'),
-                self.config.EVAL_OUTPUT_PATH,
-                filename_prefix=self.config.EVAL_FILENAME_PREFIX
-            )
+            # 保存结果
+            if save_results and self.config.SAVE_EVAL_RESULTS:
+                import os
+                if not os.path.exists(self.config.EVAL_OUTPUT_PATH):
+                    os.makedirs(self.config.EVAL_OUTPUT_PATH)
+                
+                ReportGenerator.save_report(
+                    eval_df,
+                    self.eval_results.get('annual'),
+                    self.config.EVAL_OUTPUT_PATH,
+                    filename_prefix=self.config.EVAL_FILENAME_PREFIX+name
+                )
     
     def plot_results(self):
         """绘制结果图表"""
